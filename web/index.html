@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <title>Создать и проверить уведомление</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background-color: #f6f8fa;
+        }
+        h1 {
+            color: #333;
+        }
+        form {
+            background-color: #fff;
+            border: 1px solid #ddd;
+            padding: 15px;
+            max-width: 400px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-top: 10px;
+            font-weight: bold;
+        }
+        input {
+            width: 100%;
+            padding: 8px;
+            margin-top: 5px;
+            box-sizing: border-box;
+            border-radius: 3px;
+            border: 1px solid #ccc;
+        }
+        button {
+            margin-top: 15px;
+            padding: 10px 20px;
+            cursor: pointer;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 3px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .message {
+            margin-top: 15px;
+            font-weight: bold;
+        }
+        .container {
+            display: flex;
+            gap: 20px;
+        }
+        .left-panel {
+            flex: 1;
+        }
+        .right-panel {
+            flex: 1;
+            background: white;
+            border: 1px solid #ddd;
+            padding: 10px;
+            border-radius: 5px;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        th, td {
+            border: 1px solid #ccc;
+            padding: 6px;
+            text-align: left;
+        }
+        .pagination {
+            margin-top: 10px;
+            text-align: center;
+        }
+        .pagination button {
+            margin: 0 5px;
+            padding: 6px 12px;
+            border: 1px solid #007bff;
+            background-color: white;
+            color: #007bff;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        .pagination button:disabled {
+            color: #ccc;
+            border-color: #ccc;
+            cursor: default;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+       <div class="left-panel">
+            <h1>Создать уведомление</h1>
+            <form id="notifyForm" action="http://0.0.0.0:8080/notify/" method="post">
+                <label for="text">Сообщение: </label>
+                <input type="text" id="text" name="text" required>
+
+                <label for="datetime">Дата и время: </label>
+                <input type="datetime-local" id="datetime" name="datetime" required>
+
+                <label for="tg_chatid">Укажите Telegram ChatId: </label>
+                <input type="number" id="tg_chatid" name="tg_chatid" required>
+                <a href="https://t.me/Notifierwb_bot">Узнать свой ChatId</a> <br>
+                <button type="submit">Отправить</button>
+            </form>
+
+            <h1>Проверить статус уведомления</h1>
+            <form id="statusForm">
+                <label for="notifyId">Введите ID уведомления: </label>
+                <input type="text" id="notifyId" name="notifyId" required>
+                <button type="submit">Проверить статус</button>
+            </form>
+
+            <h1>Отменить уведомление</h1>
+            <form id="canceledForm">
+                <label for="canceledId">Введите ID уведомления: </label>
+                <input type="text" id="canceledId" name="notifyId" required>
+                <button type="submit">Отменить</button>
+            </form>
+            
+            <div class="message" id="message"></div>
+        </div>
+
+        <div class="right-panel">
+            <h2>Список уведомлений</h2>
+            <table id="notificationsTable">
+                <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Текст</th>
+                    <th>Статус</th>
+                </tr>
+                </thead>
+                <tbody>
+                <!-- динамически заполняется -->
+                </tbody>
+            </table>
+            <div class="pagination">
+                <button id="prevPage" disabled>Назад</button>
+                <span id="pageInfo"></span>
+                <button id="nextPage">Вперёд</button>
+            </div>
+        </div>
+    </div>
+   
+    <script>
+
+
+        const notifyForm = document.getElementById('notifyForm');
+        const statusForm = document.getElementById('statusForm');
+        const canceledForm = document.getElementById('canceledForm')
+        const messageDiv = document.getElementById('message');
+
+        notifyForm.addEventListener('submit', function(event) {
+            event.preventDefault();
+            const formData = new FormData(notifyForm);
+
+            const localDateTime = formData.get('datetime');
+            const dateObj = new Date(localDateTime);
+
+            const utcDateTime = dateObj.toISOString();
+
+            formData.set('datetime', utcDateTime);
+
+            const data = new URLSearchParams(formData);
+
+            fetch(notifyForm.action, {
+                method: notifyForm.method,
+                body: data,
+            })
+            .then(response => {
+                if (response.ok) {
+                    messageDiv.textContent = 'Уведомление успешно отправлено!';
+                    notifyForm.reset();
+                } else {
+                    messageDiv.textContent = 'Ошибка при отправке уведомления.';
+                }
+            })
+            .catch(() => {
+                messageDiv.textContent = 'Ошибка сети. Попробуйте позже.';
+            });
+        });
+        statusForm.addEventListener('submit', function(event) {
+            event.preventDefault();
+            const id = document.getElementById('notifyId').value.trim();
+            if (!id) {
+                messageDiv.textContent = 'Введите ID уведомления.';
+                return;
+            }
+            fetch(`http://0.0.0.0:8080/notify/${id}`, {
+                method: 'GET',
+            })
+            .then(async response => {
+                const data = await response.json();
+                if (!response.ok) {
+
+                    throw new Error(data.error || 'Неизвестная ошибка');
+                }
+                return data;
+            })
+            .then(data => {
+                messageDiv.textContent = `Статус уведомления: ${data.status}`;
+            })
+            .catch(err => {
+                
+                messageDiv.textContent = `Ошибка: ${err.message}`;
+            });
+        });
+
+
+        canceledForm.addEventListener('submit', function(event) {
+            event.preventDefault();
+            const id = document.getElementById('canceledId').value.trim();
+            if (!id) {
+                messageDiv.textContent = 'Введите ID уведомления.';
+                return;
+            }
+            fetch(`http://0.0.0.0:8080/notify/${id}`, {
+                method: 'DELETE',
+            })
+            .then(async response => {
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Неизвестная ошибка');
+                }
+                const text = await response.text();
+                let data = {};
+                if (text) {
+                    data = JSON.parse(text);
+                }
+                messageDiv.textContent = `Уведомление отменено`;
+            })
+            .catch(err => {
+                
+                messageDiv.textContent = `Ошибка: ${err.message}`;
+            });
+        });
+
+        const notificationsTableBody = document.querySelector("#notificationsTable tbody");
+        const prevPageBtn = document.getElementById("prevPage");
+        const nextPageBtn = document.getElementById("nextPage");
+        const pageInfo = document.getElementById("pageInfo");
+
+        let currentPage = 1;
+        const pageSize = 10;
+        let totalPages = 1;
+
+        async function loadNotifications(page) {
+            try {
+                const response = await fetch(`http://0.0.0.0:8080/notifications?page=${page}&size=${pageSize}`);
+                if (!response.ok) {
+                    throw new Error("Ошибка загрузки уведомлений");
+                }
+                const data = await response.json();
+
+                const notifications = data.notifications;
+                totalPages = Math.ceil(data.total / pageSize);
+
+                notificationsTableBody.innerHTML = "";
+
+                if (notifications.length === 0) {
+                    notificationsTableBody.innerHTML = `<tr><td colspan="3">Уведомления не найдены</td></tr>`;
+                } else {
+                    notifications.forEach(n => {
+                        const tr = document.createElement("tr");
+                        tr.innerHTML = `
+                            <td>${n.id}</td>
+                            <td>${n.text}</td>
+                            <td>${n.status}</td>
+                        `;
+                        notificationsTableBody.appendChild(tr);
+                    });
+                }
+
+                pageInfo.textContent = `Страница ${currentPage} из ${totalPages}`;
+
+                prevPageBtn.disabled = currentPage === 1;
+                nextPageBtn.disabled = currentPage === totalPages;
+            } catch (err) {
+                notificationsTableBody.innerHTML = `<tr><td colspan="3">Ошибка загрузки уведомлений</td></tr>`;
+                console.error(err);
+            }
+        }
+
+        prevPageBtn.addEventListener("click", () => {
+            if (currentPage > 1) {
+                currentPage--;
+                loadNotifications(currentPage);
+            }
+        });
+
+        nextPageBtn.addEventListener("click", () => {
+            if (currentPage < totalPages) {
+                currentPage++;
+                loadNotifications(currentPage);
+            }
+        });
+
+        loadNotifications(currentPage);
+    </script>
+</body>
+</html>
