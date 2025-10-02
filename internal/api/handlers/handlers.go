@@ -13,7 +13,7 @@ import (
 
 type Handler struct {
 	RMQ   *repository.RabbitMQ
-	DB    *repository.Storage
+	DB    repository.Storager
 	Redis *redis.Client
 }
 

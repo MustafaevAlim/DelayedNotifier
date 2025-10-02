@@ -19,7 +19,7 @@ type App struct {
 	Host     string
 	Handler  http.Handler
 	RabbitMQ *repository.RabbitMQ
-	DB       *repository.Storage
+	DB       repository.Storager
 	TgBot    *service.TelegramBot
 	Redis    *redis.Client
 }

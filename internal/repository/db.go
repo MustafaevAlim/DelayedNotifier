@@ -12,6 +12,15 @@ import (
 	"DelayedNotifier/internal/model"
 )
 
+type Storager interface {
+	CreateNotification(ctx context.Context, n model.CreateNotification) (*model.NotificationInRepo, error)
+	GetTotalNotifications(ctx context.Context) (int, error)
+	GetNotifications(ctx context.Context, page, pageSize int) ([]model.NotificationInResponse, error)
+	UpdateStatusNotification(ctx context.Context, uid string, newStatus string) error
+	GetNotificationByUUID(ctx context.Context, uid string) (*model.NotificationInRepo, error)
+	Close() error
+}
+
 type Storage struct {
 	DB *dbpg.DB
 }
@@ -34,12 +43,13 @@ func (s *Storage) Close() error {
 }
 
 func (s *Storage) CreateNotification(ctx context.Context, n model.CreateNotification) (*model.NotificationInRepo, error) {
-	var nInRepo model.NotificationInRepo
-	nInRepo.DateTime = n.DateTime
-	nInRepo.Text = n.Text
-	nInRepo.Status = model.StatusWait
-	nInRepo.TgChatId = n.TgChatId
-	nInRepo.Uid = uuid.NewString()
+	nInRepo := model.NotificationInRepo{
+		DateTime: n.DateTime,
+		Text:     n.Text,
+		Status:   model.StatusWait,
+		TgChatId: n.TgChatId,
+		Uid:      uuid.NewString(),
+	}
 
 	_, err := s.DB.ExecContext(ctx,
 		`INSERT INTO notifications (uuid, text_message, publish_time, status_publish, tg_chatid, created_at, updated_at)
@@ -135,6 +145,12 @@ func (s *Storage) GetNotificationByUUID(ctx context.Context, uid string) (*model
 	if err != nil {
 		return nil, err
 	}
+	defer func() {
+		if err := res.Close(); err != nil {
+			zlog.Logger.Err(err)
+		}
+	}()
+
 	if res.Next() {
 		err = res.Scan(&n.Uid, &n.Text, &n.DateTime, &n.Status, &n.TgChatId)
 		if err != nil {

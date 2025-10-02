@@ -21,7 +21,7 @@ type RetryMessage struct {
 	msg      tgbotapi.MessageConfig
 }
 
-func SendMessage(ctx context.Context, retryQueue chan RetryMessage, msgChan chan []byte, db *repository.Storage) {
+func SendMessage(ctx context.Context, retryQueue chan RetryMessage, msgChan chan []byte, db repository.Storager) {
 	for msg := range msgChan {
 		var msgMap map[string]string
 		err := json.Unmarshal(msg, &msgMap)
@@ -52,7 +52,7 @@ func SendMessage(ctx context.Context, retryQueue chan RetryMessage, msgChan chan
 	close(retryQueue)
 }
 
-func RetryWorker(ctx context.Context, retryQueue chan RetryMessage, db *repository.Storage, tgbot *TelegramBot) {
+func RetryWorker(ctx context.Context, retryQueue chan RetryMessage, db repository.Storager, tgbot *TelegramBot) {
 	for rm := range retryQueue {
 		if tgbot == nil {
 			log.Println(rm.msg.Text)
